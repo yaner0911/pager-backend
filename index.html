@@ -573,6 +573,9 @@ safe-buffer/index.js:
   });
 
   message.addEventListener("input", () => {
+    if (countCharacters(message.value) > MAX_LEN) {
+      message.value = Array.from(message.value).slice(0, MAX_LEN).join("");
+    }
     updateMeasurements(message.value);
     if (message.value.trim()) {
       showOnScreen(message.value, "草稿预览", false);
