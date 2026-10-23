@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>给学妹发消息</title>
+<script src="https://cdn.jsdelivr.net/npm/mqtt@5/dist/mqtt.min.js"></script>
+<style>
+  body { font-family: -apple-system, sans-serif; background: #fff7f7; max-width: 480px; margin: 16px auto; padding: 0 16px; }
+  h1 { font-size: 20px; color: #d6336c; }
+  textarea { width: 100%; padding: 12px; font-size: 16px; box-sizing: border-box; height: 90px; border: 1px solid #f0b6c8; border-radius: 10px; }
+  .send { width: 100%; padding: 16px; font-size: 18px; background: #d6336c; color: #fff; border: none; border-radius: 12px; margin-top: 10px; }
+  .quick { display: inline-block; margin: 8px 6px 0 0; padding: 10px 14px; font-size: 15px; background: #fff; border: 1px solid #f0b6c8; border-radius: 20px; color: #d6336c; }
+  #status { color: #888; font-size: 13px; margin-top: 10px; }
+</style>
+</head>
+<body>
+<h1>给学妹发消息 💕</h1>
+
+<textarea id="msg" placeholder="写一句想对学妹说的话…"></textarea>
+<button class="send" onclick="send()">发送</button>
+
+<div>
+  <button class="quick" onclick="quick('我想你啦')">我想你啦</button>
+  <button class="quick" onclick="quick('今天也要开心')">今天也要开心</button>
+  <button class="quick" onclick="quick('要记得吃饭')">要记得吃饭</button>
+  <button class="quick" onclick="quick('抱抱')">抱抱</button>
+</div>
+
+<div id="status">正在连接…</div>
+
+<script>
+const TOPIC = "yaner0911/mommy/msg";
+const client = mqtt.connect("wss://broker.emqx.io:8084/mqtt");
+
+client.on("connect", () => {
+  document.getElementById("status").textContent = "✅ 已连接，可以发消息了";
+});
+client.on("error", (e) => {
+  document.getElementById("status").textContent = "⚠️ 连接失败，检查网络后刷新页面";
+});
+
+function quick(text) {
+  document.getElementById("msg").value = text;
+  send();
+}
+
+function send() {
+  const text = document.getElementById("msg").value.trim();
+  if (!text) { alert("先写句话"); return; }
+  if (!client.connected) { alert("还没连上，稍等一下再点"); return; }
+  client.publish(TOPIC, text, { retain: true, qos: 1 });
+  document.getElementById("msg").value = "";
+  alert("已发送 ✓");
+}
+</script>
+</body>
+</html>
