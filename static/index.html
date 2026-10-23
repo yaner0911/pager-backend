@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>给玩偶发消息</title>
+<style>
+  body { font-family: -apple-system, sans-serif; background: #f5f5f5; max-width: 480px; margin: 16px auto; padding: 0 16px; }
+  h1 { font-size: 20px; }
+  textarea { width: 100%; padding: 12px; font-size: 16px; box-sizing: border-box; height: 80px; }
+  input { width: 100%; padding: 12px; margin: 6px 0; font-size: 16px; box-sizing: border-box; }
+  .send { width: 100%; padding: 16px; font-size: 18px; background: #4a90d9; color: #fff; border: none; border-radius: 10px; }
+  .quick { display: inline-block; margin: 6px 4px 0 0; padding: 10px 14px; font-size: 15px; background: #eee; border: 1px solid #ccc; border-radius: 20px; }
+  .hint { color: #888; font-size: 13px; margin: 4px 0 12px; }
+</style>
+</head>
+<body>
+<h1>给玩偶发消息</h1>
+
+<input id="pw" type="password" placeholder="密码">
+<div class="hint">密码是部署时设的 ADMIN_PASSWORD，第一次填了会记住</div>
+
+<textarea id="msg" placeholder="写一句想对学妹说的话…"></textarea>
+<button class="send" onclick="sendMsg()">发送</button>
+
+<div style="margin-top:16px">
+  <button class="quick" onclick="quick('我想你啦')">我想你啦</button>
+  <button class="quick" onclick="quick('今天也要开心')">今天也要开心</button>
+  <button class="quick" onclick="quick('要记得吃饭')">要记得吃饭</button>
+  <button class="quick" onclick="quick('抱抱')">抱抱</button>
+</div>
+
+<script>
+document.getElementById('pw').value = localStorage.getItem('pw') || '';
+document.getElementById('pw').addEventListener('input', e => localStorage.setItem('pw', e.target.value));
+
+function quick(text) {
+  document.getElementById('msg').value = text;
+  sendMsg();
+}
+
+async function sendMsg() {
+  const text = document.getElementById('msg').value.trim();
+  const pw = document.getElementById('pw').value;
+  if (!text) { alert('先写句话'); return; }
+  if (!pw) { alert('先填密码'); return; }
+  try {
+    const r = await fetch('/api/send', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({text: text, password: pw})
+    });
+    if (!r.ok) {
+      let d = r.status;
+      try { d = (await r.json()).detail || d; } catch(e) {}
+      alert('发送失败: ' + d);
+    } else {
+      document.getElementById('msg').value = '';
+      alert('已发送 ✓');
+    }
+  } catch(e) {
+    alert('网络错误: ' + e);
+  }
+}
+</script>
+</body>
+</html>
