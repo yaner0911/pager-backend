@@ -773,9 +773,14 @@
     const queue = loadQueue();
     const pin = loadPin();
     const enrich = (item) => item ? { ...item, hm: item.hm || hmFromTs(item.ts) } : null;
+    const recent = queue
+      .filter((item) => item && item.t && item.ts)
+      .sort((a, b) => a.ts - b.ts)
+      .slice(-MAX_QUEUE)
+      .map(enrich);
     client.publish(TOPIC, JSON.stringify({
       pinned: enrich(pin),
-      msgs: queue.slice(-MAX_QUEUE).map(enrich)
+      msgs: recent
     }), { retain: true, qos: 1 });
   }
 
