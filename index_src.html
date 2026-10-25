@@ -535,7 +535,7 @@
 
     <form id="messageForm">
       <label class="sr-only" for="message">消息内容</label>
-      <textarea id="message" maxlength="40" placeholder="比如：今天也要开心…"></textarea>
+      <textarea id="message" maxlength="40" placeholder="比如：心情怎么样…"></textarea>
       <p class="field-help" id="fieldHelp" aria-live="polite">写下后将实时预览在挂件上。</p>
       <button class="send" type="submit">
         发 送
@@ -593,7 +593,7 @@
             </span>
           </div>
           <div class="screen-line top" aria-hidden="true"></div>
-          <p class="screen-message" id="screenMessage">今天也要开心</p>
+          <p class="screen-message" id="screenMessage">心情怎么样</p>
           <div class="screen-line bottom" aria-hidden="true"></div>
           <div class="screen-bottom">
             <span id="screenStatus">MOM / SYNC OK</span>
@@ -804,7 +804,7 @@
       pinButton.className = "history-pin" + (pin && pin.ts === item.ts ? " is-pinned" : "");
       pinButton.textContent = pin && pin.ts === item.ts ? "已置顶" : "置顶";
       pinButton.addEventListener("click", () => {
-        const next = pin && pin.ts === item.ts ? null : { t: item.t, ts: item.ts };
+        const next = pin && pin.ts === item.ts ? null : { t: item.t, ts: item.ts, hm: item.hm || "" };
         savePin(next);
         renderHistory();
         publishCurrent();
@@ -832,15 +832,15 @@
     }
 
     const queue = loadQueue();
-    queue.push({ t: cleanText, ts: Date.now() });
+    queue.push({ t: cleanText, ts: Date.now(), hm: nowHM() });
     const trimmed = queue.slice(-MAX_QUEUE);
     saveQueue(trimmed);
     const history = loadHistory();
-    history.push({ t: cleanText, ts: Date.now() });
+    history.push({ t: cleanText, ts: Date.now(), hm: nowHM() });
     saveHistory(history.slice(-MAX_HISTORY));
     renderHistory();
     publishCurrent();
-    client.publish(HISTORY_BASE + "/" + Date.now(), JSON.stringify({ t: cleanText, ts: Date.now() }), { retain: true, qos: 1 });
+    client.publish(HISTORY_BASE + "/" + Date.now(), JSON.stringify({ t: cleanText, ts: Date.now(), hm: nowHM() }), { retain: true, qos: 1 });
     showOnScreen(cleanText, "已发送", nowHM());
     message.value = "";
     updateMeasurements("");
@@ -873,7 +873,7 @@
   });
 
   updateMeasurements("");
-  showOnScreen("今天也要开心", "示例消息", "", false);
+  showOnScreen("心情怎么样", "示例消息", "", false);
   renderHistory();
 
   historyClear.addEventListener("click", () => {
