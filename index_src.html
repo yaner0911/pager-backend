@@ -458,6 +458,20 @@
     cursor: pointer;
     font-size: 10px;
   }
+  .history-actions {
+    display: flex;
+    flex: 0 0 auto;
+    gap: 4px;
+  }
+  .history-delete {
+    border: 0;
+    padding: 3px 7px;
+    border-radius: 7px;
+    color: var(--muted);
+    background: #eee7e0;
+    cursor: pointer;
+    font-size: 10px;
+  }
   .history-pin.is-pinned {
     color: #fff;
     background: var(--rose-deep);
@@ -849,9 +863,34 @@
         publishCurrent();
       });
 
+      const deleteButton = document.createElement("button");
+      deleteButton.type = "button";
+      deleteButton.className = "history-delete";
+      deleteButton.textContent = "删除";
+      deleteButton.addEventListener("click", () => {
+        if (client.connected) {
+          client.publish(item._topic || HISTORY_BASE + "/" + item.ts, "", { retain: true, qos: 1 });
+        }
+        const nextHistory = loadHistory().filter((entry) => historyKey(entry) !== historyKey(item));
+        saveHistory(nextHistory);
+        const nextQueue = loadQueue().filter((entry) => historyKey(entry) !== historyKey(item));
+        saveQueue(nextQueue);
+        const currentPin = loadPin();
+        if (currentPin && historyKey(currentPin) === historyKey(item)) {
+          savePin(null);
+        }
+        renderHistory();
+        publishCurrent();
+      });
+
+      const actions = document.createElement("span");
+      actions.className = "history-actions";
+      actions.appendChild(pinButton);
+      actions.appendChild(deleteButton);
+
       li.appendChild(text);
       li.appendChild(time);
-      li.appendChild(pinButton);
+      li.appendChild(actions);
       historyList.appendChild(li);
     });
   }
@@ -926,14 +965,14 @@
     const history = loadHistory();
     if (client.connected) {
       history.forEach((item) => {
-        if (item._topic) {
-          client.publish(item._topic, "", { retain: true, qos: 1 });
-        }
+        client.publish(item._topic || HISTORY_BASE + "/" + item.ts, "", { retain: true, qos: 1 });
       });
     }
     savePin(null);
     saveHistory([]);
+    saveQueue([]);
     renderHistory();
+    publishCurrent();
   });
 
   function fitScreenPreview() {
