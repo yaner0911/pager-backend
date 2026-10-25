@@ -711,6 +711,18 @@
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
   }
 
+  function historyKey(item) {
+    return `${item.t || ""}|${item.hm || fullTime(item.ts).slice(0, 16)}`;
+  }
+
+  function dedupeHistory(history) {
+    const unique = new Map();
+    history.filter((item) => item && item.t && item.ts).forEach((item) => {
+      unique.set(historyKey(item), item);
+    });
+    return Array.from(unique.values()).sort((a, b) => a.ts - b.ts);
+  }
+
   function showOnScreen(text, state, sentTime = "", animate = true) {
     const body = text || "等一句想说的话…";
     screenMessage.innerHTML = escapeHtml(body) + (sentTime
@@ -787,7 +799,7 @@
   function loadHistory() {
     try {
       const parsed = JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]");
-      return Array.isArray(parsed) ? parsed : [];
+      return Array.isArray(parsed) ? dedupeHistory(parsed) : [];
     } catch (error) {
       return [];
     }
@@ -795,7 +807,7 @@
 
   function saveHistory(history) {
     try {
-      localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(dedupeHistory(history)));
     } catch (error) {
       // 忽略存储异常
     }
@@ -856,16 +868,17 @@
       return;
     }
 
+    const sentAt = Date.now();
     const queue = loadQueue();
-    queue.push({ t: cleanText, ts: Date.now(), hm: nowHM() });
+    queue.push({ t: cleanText, ts: sentAt, hm: nowHM() });
     const trimmed = queue.slice(-MAX_QUEUE);
     saveQueue(trimmed);
     const history = loadHistory();
-    history.push({ t: cleanText, ts: Date.now(), hm: nowHM() });
+    history.push({ t: cleanText, ts: sentAt, hm: nowHM() });
     saveHistory(history.slice(-MAX_HISTORY));
     renderHistory();
     publishCurrent();
-    client.publish(HISTORY_BASE + "/" + Date.now(), JSON.stringify({ t: cleanText, ts: Date.now(), hm: nowHM() }), { retain: true, qos: 1 });
+    client.publish(HISTORY_BASE + "/" + sentAt, JSON.stringify({ t: cleanText, ts: sentAt, hm: nowHM() }), { retain: true, qos: 1 });
     showOnScreen(cleanText, "已发送", nowHM());
     message.value = "";
     updateMeasurements("");
@@ -960,7 +973,7 @@
         const parsed = JSON.parse(text);
         if (parsed && parsed.t) {
           const history = loadHistory();
-          const exists = history.some((item) => item.ts === parsed.ts && item.t === parsed.t);
+          const exists = history.some((item) => historyKey(item) === historyKey(parsed));
           if (!exists) {
             history.push({ t: parsed.t, ts: parsed.ts });
             saveHistory(history.slice(-MAX_HISTORY));
