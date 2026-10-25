@@ -361,11 +361,20 @@
     align-items: center;
     margin-left: 4px;
   }
+  .screen-left {
+    display: inline-flex;
+    align-items: center;
+  }
   .screen-heart svg {
     display: block;
-    width: 10px;
-    height: 10px;
+    width: 13px;
+    height: 11px;
     fill: #171715;
+  }
+  .screen-date {
+    font-size: 10px;
+    letter-spacing: -.2px;
+    white-space: nowrap;
   }
   .screen-icons {
     display: flex;
@@ -528,7 +537,7 @@
     <div class="section-head">
       <div>
         <h2 id="composeTitle">写一句想说的话</h2>
-        <p>屏幕较小，建议控制在 15 字以内。</p>
+        <p>建议控制在 40 字以内，超长内容最多显示三行。</p>
       </div>
       <span class="counter"><b id="charCount">0</b> / 40</span>
     </div>
@@ -566,30 +575,24 @@
       <div class="screen-window">
         <div class="screen-page" id="screenPage">
           <div class="screen-top">
-            <span id="screenClock">--:--</span>
-            <span class="screen-heart" aria-hidden="true">
-              <svg viewBox="0 0 9 8" shape-rendering="crispEdges">
-                <rect x="3" y="0" width="1" height="1"/>
-                <rect x="5" y="0" width="1" height="1"/>
-                <rect x="2" y="1" width="1" height="1"/>
-                <rect x="6" y="1" width="1" height="1"/>
-                <rect x="1" y="2" width="1" height="1"/>
-                <rect x="7" y="2" width="1" height="1"/>
-                <rect x="0" y="3" width="1" height="1"/>
-                <rect x="8" y="3" width="1" height="1"/>
-                <rect x="1" y="4" width="1" height="1"/>
-                <rect x="7" y="4" width="1" height="1"/>
-                <rect x="2" y="5" width="1" height="1"/>
-                <rect x="6" y="5" width="1" height="1"/>
-                <rect x="3" y="6" width="1" height="1"/>
-                <rect x="5" y="6" width="1" height="1"/>
-                <rect x="4" y="7" width="1" height="1"/>
-              </svg>
+            <span class="screen-left">
+              <span id="screenClock">--:--</span>
+              <span class="screen-heart" aria-hidden="true">
+                <svg viewBox="0 0 7 6" shape-rendering="crispEdges">
+                  <rect x="1" y="0" width="2" height="1"/>
+                  <rect x="4" y="0" width="2" height="1"/>
+                  <rect x="0" y="1" width="3" height="1"/>
+                  <rect x="4" y="1" width="3" height="1"/>
+                  <rect x="0" y="2" width="7" height="1"/>
+                  <rect x="1" y="3" width="5" height="1"/>
+                  <rect x="2" y="4" width="3" height="1"/>
+                  <rect x="3" y="5" width="1" height="1"/>
+                </svg>
+              </span>
             </span>
             <span class="screen-icons">
               <span class="screen-sig" aria-hidden="true">▂▄▆</span>
-              <span class="screen-batt" aria-hidden="true">▮▮▮▮</span>
-              <span class="screen-batt-text" id="screenBattText">--</span>
+              <span class="screen-date" id="screenDate">2026-10-25</span>
             </span>
           </div>
           <div class="screen-line top" aria-hidden="true"></div>
@@ -645,7 +648,7 @@
   const screenMessage = document.getElementById("screenMessage");
   const screenFit = document.getElementById("screenFit");
   const screenClock = document.getElementById("screenClock");
-  const screenBattText = document.getElementById("screenBattText");
+  const screenDate = document.getElementById("screenDate");
   const screenStatus = document.getElementById("screenStatus");
   const historyList = document.getElementById("historyList");
   const historyClear = document.getElementById("historyClear");
@@ -683,6 +686,18 @@
     return new Date().toTimeString().slice(0, 5);
   }
 
+  function hmFromTs(ms) {
+    if (!ms) return nowHM();
+    const d = new Date(ms);
+    return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+  }
+
+  function dateText() {
+    const d = new Date();
+    const pad = (n) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  }
+
   function escapeHtml(text) {
     return String(text)
       .replace(/&/g, "&amp;")
@@ -703,6 +718,7 @@
       : "");
     previewState.textContent = state;
     screenClock.textContent = nowHM();
+    screenDate.textContent = dateText();
     screenStatus.textContent = "MOM / SYNC OK";
     const overflow = screenMessage.scrollHeight > 65;
     screenFit.textContent = overflow ? "内容超出屏幕" : "可完整显示";
@@ -756,7 +772,11 @@
     if (!client.connected) return;
     const queue = loadQueue();
     const pin = loadPin();
-    client.publish(TOPIC, JSON.stringify({ pinned: pin, msgs: queue.slice(-MAX_QUEUE) }), { retain: true, qos: 1 });
+    const enrich = (item) => item ? { ...item, hm: item.hm || hmFromTs(item.ts) } : null;
+    client.publish(TOPIC, JSON.stringify({
+      pinned: enrich(pin),
+      msgs: queue.slice(-MAX_QUEUE).map(enrich)
+    }), { retain: true, qos: 1 });
   }
 
   function loadHistory() {
@@ -873,7 +893,13 @@
   });
 
   updateMeasurements("");
-  showOnScreen("心情怎么样", "示例消息", "", false);
+  const previewHistory = loadHistory();
+  const previewLatest = previewHistory[previewHistory.length - 1];
+  if (previewLatest) {
+    showOnScreen(previewLatest.t, "历史消息", previewLatest.hm || hmFromTs(previewLatest.ts), false);
+  } else {
+    showOnScreen("心情怎么样", "示例消息", "", false);
+  }
   renderHistory();
 
   historyClear.addEventListener("click", () => {
@@ -902,6 +928,7 @@
   client.on("connect", () => {
     setConnection("已连接", true);
     client.subscribe([TOPIC, REPLY_TOPIC, HISTORY_BASE + "/#"]);
+    publishCurrent();
   });
 
   client.on("message", (topic, payload) => {
@@ -914,7 +941,7 @@
             savePin(parsed.pinned);
           }
           const latest = parsed.msgs[parsed.msgs.length - 1];
-          showOnScreen(latest.t || text, "来自 MQTT");
+          showOnScreen(latest.t || text, "来自 MQTT", latest.hm || hmFromTs(latest.ts));
           announcement.textContent = "挂件收到消息：" + (latest.t || text);
           return;
         }
