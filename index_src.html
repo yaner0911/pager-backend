@@ -335,6 +335,14 @@
     line-height: 22px;
     letter-spacing: .02em;
   }
+  .screen-time-inline {
+    display: block;
+    margin-top: 2px;
+    font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+    font-size: 10px;
+    line-height: 13px;
+    color: #171715;
+  }
   .screen-top {
     position: absolute;
     z-index: 1;
@@ -381,10 +389,6 @@
     font-size: 10px;
     line-height: 12px;
     white-space: nowrap;
-  }
-  .screen-bottom .screen-sent {
-    position: absolute;
-    left: 116px;
   }
   .screen-face { color: #171715; }
   .history-card { margin-top: 15px; padding: 20px 18px 16px; }
@@ -501,12 +505,12 @@
         <h2 id="composeTitle">写一句想说的话</h2>
         <p>屏幕较小，建议控制在 15 字以内。</p>
       </div>
-      <span class="counter"><b id="charCount">0</b> / 15</span>
+      <span class="counter"><b id="charCount">0</b> / 40</span>
     </div>
 
     <form id="messageForm">
       <label class="sr-only" for="message">消息内容</label>
-      <textarea id="message" maxlength="15" placeholder="比如：今天也要开心…"></textarea>
+      <textarea id="message" maxlength="40" placeholder="比如：今天也要开心…"></textarea>
       <p class="field-help" id="fieldHelp" aria-live="polite">写下后将实时预览在挂件上。</p>
       <button class="send" type="submit">
         发 送
@@ -549,8 +553,7 @@
           <div class="screen-line bottom" aria-hidden="true"></div>
           <div class="screen-bottom">
             <span id="screenStatus">MOM / SYNC OK</span>
-            <span class="screen-sent" id="screenSent"></span>
-            <span class="screen-face">(=^_^=)</span>
+            <span class="screen-face">=^..^=</span>
           </div>
         </div>
       </div>
@@ -580,7 +583,7 @@
   const TOPIC = "yaner0911/mommy/msg";
   const REPLY_TOPIC = "yaner0911/mommy/reply";
   const HISTORY_BASE = "yaner0911/mommy/history";
-  const MAX_LEN = 15;
+  const MAX_LEN = 40;
   const MAX_QUEUE = 5;
   const QUEUE_KEY = "pager-queue-v1";
   const HISTORY_KEY = "pager-history-v1";
@@ -598,7 +601,6 @@
   const screenFit = document.getElementById("screenFit");
   const screenClock = document.getElementById("screenClock");
   const screenBattText = document.getElementById("screenBattText");
-  const screenSent = document.getElementById("screenSent");
   const screenStatus = document.getElementById("screenStatus");
   const historyList = document.getElementById("historyList");
   const historyClear = document.getElementById("historyClear");
@@ -636,6 +638,13 @@
     return new Date().toTimeString().slice(0, 5);
   }
 
+  function escapeHtml(text) {
+    return String(text)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+  }
+
   function fullTime(ms) {
     const d = new Date(ms);
     const pad = (n) => String(n).padStart(2, "0");
@@ -643,10 +652,12 @@
   }
 
   function showOnScreen(text, state, sentTime = "", animate = true) {
-    screenMessage.textContent = text || "等一句想说的话…";
+    const body = text || "等一句想说的话…";
+    screenMessage.innerHTML = escapeHtml(body) + (sentTime
+      ? '<span class="screen-time-inline">' + escapeHtml(sentTime) + '</span>'
+      : "");
     previewState.textContent = state;
     screenClock.textContent = nowHM();
-    screenSent.textContent = sentTime;
     screenStatus.textContent = "MOM / SYNC OK";
     const overflow = screenMessage.scrollHeight > 65;
     screenFit.textContent = overflow ? "内容超出屏幕" : "可完整显示";
