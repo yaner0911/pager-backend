@@ -876,7 +876,7 @@
     const trimmed = queue.slice(-MAX_QUEUE);
     saveQueue(trimmed);
     const history = loadHistory();
-    history.push({ t: cleanText, ts: sentAt, hm: nowHM() });
+    history.push({ t: cleanText, ts: sentAt, hm: nowHM(), _topic: HISTORY_BASE + "/" + sentAt });
     saveHistory(history.slice(-MAX_HISTORY));
     renderHistory();
     publishCurrent();
@@ -923,6 +923,15 @@
   renderHistory();
 
   historyClear.addEventListener("click", () => {
+    const history = loadHistory();
+    if (client.connected) {
+      history.forEach((item) => {
+        if (item._topic) {
+          client.publish(item._topic, "", { retain: true, qos: 1 });
+        }
+      });
+    }
+    savePin(null);
     saveHistory([]);
     renderHistory();
   });
@@ -975,11 +984,20 @@
         const parsed = JSON.parse(text);
         if (parsed && parsed.t) {
           const history = loadHistory();
-          const exists = history.some((item) => historyKey(item) === historyKey(parsed));
-          if (!exists) {
-            history.push({ t: parsed.t, ts: parsed.ts });
+          const entry = {
+            t: parsed.t,
+            ts: parsed.ts,
+            hm: parsed.hm || hmFromTs(parsed.ts),
+            _topic: topic
+          };
+          const existing = history.find((item) => historyKey(item) === historyKey(entry));
+          if (!existing) {
+            history.push(entry);
             saveHistory(history.slice(-MAX_HISTORY));
             renderHistory();
+          } else if (existing._topic !== topic) {
+            existing._topic = topic;
+            saveHistory(history);
           }
         }
       } catch (error) {
