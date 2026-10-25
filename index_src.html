@@ -321,10 +321,10 @@
   .screen-message {
     position: absolute;
     z-index: 1;
-    top: 12px;
+    top: 27px;
     left: 8px;
     width: 234px;
-    max-height: 110px;
+    max-height: 65px;
     margin: 0;
     overflow: hidden;
     overflow-wrap: anywhere;
@@ -335,6 +335,96 @@
     line-height: 22px;
     letter-spacing: .02em;
   }
+  .screen-top {
+    position: absolute;
+    z-index: 1;
+    top: 4px;
+    left: 8px;
+    right: 8px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+    font-size: 12px;
+    line-height: 15px;
+  }
+  .screen-icons {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    white-space: nowrap;
+  }
+  .screen-batt {
+    color: #171715;
+    letter-spacing: -1px;
+  }
+  .screen-batt-text { color: #171715; }
+  .screen-line {
+    position: absolute;
+    z-index: 1;
+    left: 8px;
+    right: 8px;
+    height: 1px;
+    background: #171715;
+  }
+  .screen-line.top { top: 21px; }
+  .screen-line.bottom { top: 99px; }
+  .screen-bottom {
+    position: absolute;
+    z-index: 1;
+    left: 8px;
+    right: 8px;
+    top: 105px;
+    display: flex;
+    justify-content: space-between;
+    font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+    font-size: 10px;
+    line-height: 12px;
+    white-space: nowrap;
+  }
+  .screen-bottom .screen-sent {
+    position: absolute;
+    left: 116px;
+  }
+  .screen-face { color: #171715; }
+  .history-card { margin-top: 15px; padding: 20px 18px 16px; }
+  .history-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+  }
+  .history-head h2 {
+    margin: 0;
+    font-family: "Noto Serif SC", "Songti SC", SimSun, serif;
+    font-size: 19px;
+    font-weight: 600;
+  }
+  .history-clear {
+    border: 0;
+    padding: 5px 8px;
+    border-radius: 8px;
+    color: var(--muted);
+    background: #eee7e0;
+    cursor: pointer;
+    font-size: 11px;
+  }
+  .history-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .history-item {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 11px 2px;
+    border-top: 1px solid #eee4e0;
+  }
+  .history-item:first-child { border-top: 0; }
+  .history-text { color: var(--ink); font-size: 14px; }
+  .history-time { flex: 0 0 auto; color: var(--muted); font-size: 11px; white-space: nowrap; }
+  .history-empty { color: var(--muted); font-size: 12px; padding: 8px 2px; }
   .screen-page.is-refreshing { animation: eink-refresh .58s steps(2, end); }
   @keyframes eink-refresh {
     0% { filter: contrast(.35); }
@@ -446,13 +536,36 @@
     <div class="device">
       <div class="screen-window">
         <div class="screen-page" id="screenPage">
+          <div class="screen-top">
+            <span id="screenClock">--:--</span>
+            <span class="screen-icons">
+              <span class="screen-sig" aria-hidden="true">▂▄▆</span>
+              <span class="screen-batt" aria-hidden="true">▮▮▮▮</span>
+              <span class="screen-batt-text" id="screenBattText">--</span>
+            </span>
+          </div>
+          <div class="screen-line top" aria-hidden="true"></div>
           <p class="screen-message" id="screenMessage">今天也要开心</p>
+          <div class="screen-line bottom" aria-hidden="true"></div>
+          <div class="screen-bottom">
+            <span id="screenStatus">MOM / SYNC OK</span>
+            <span class="screen-sent" id="screenSent"></span>
+            <span class="screen-face">(=^_^=)</span>
+          </div>
         </div>
       </div>
     </div>
     <div class="device-meta">
       <span id="screenFit">可完整显示</span>
     </div>
+  </section>
+
+  <section class="card history-card" aria-labelledby="historyTitle">
+    <div class="history-head">
+      <h2 id="historyTitle">历史消息</h2>
+      <button class="history-clear" id="historyClear" type="button">清空</button>
+    </div>
+    <ul class="history-list" id="historyList"></ul>
   </section>
 
   <footer class="footer">
@@ -469,6 +582,8 @@
   const MAX_LEN = 15;
   const MAX_QUEUE = 5;
   const QUEUE_KEY = "pager-queue-v1";
+  const HISTORY_KEY = "pager-history-v1";
+  const MAX_HISTORY = 200;
 
   const form = document.getElementById("messageForm");
   const message = document.getElementById("message");
@@ -480,6 +595,12 @@
   const screenPage = document.getElementById("screenPage");
   const screenMessage = document.getElementById("screenMessage");
   const screenFit = document.getElementById("screenFit");
+  const screenClock = document.getElementById("screenClock");
+  const screenBattText = document.getElementById("screenBattText");
+  const screenSent = document.getElementById("screenSent");
+  const screenStatus = document.getElementById("screenStatus");
+  const historyList = document.getElementById("historyList");
+  const historyClear = document.getElementById("historyClear");
   const announcement = document.getElementById("announcement");
   let refreshTimer;
 
@@ -510,10 +631,23 @@
     return overflow;
   }
 
-  function showOnScreen(text, state, animate = true) {
+  function nowHM() {
+    return new Date().toTimeString().slice(0, 5);
+  }
+
+  function fullTime(ms) {
+    const d = new Date(ms);
+    const pad = (n) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+
+  function showOnScreen(text, state, sentTime = "", animate = true) {
     screenMessage.textContent = text || "等一句想说的话…";
     previewState.textContent = state;
-    const overflow = screenMessage.scrollHeight > 110;
+    screenClock.textContent = nowHM();
+    screenSent.textContent = sentTime;
+    screenStatus.textContent = "MOM / SYNC OK";
+    const overflow = screenMessage.scrollHeight > 65;
     screenFit.textContent = overflow ? "内容超出屏幕" : "可完整显示";
     if (!animate) return;
     screenPage.classList.remove("is-refreshing");
@@ -545,6 +679,51 @@
     }
   }
 
+  function loadHistory() {
+    try {
+      const parsed = JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]");
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (error) {
+      return [];
+    }
+  }
+
+  function saveHistory(history) {
+    try {
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+    } catch (error) {
+      // 忽略存储异常
+    }
+  }
+
+  function renderHistory() {
+    const history = loadHistory();
+    historyList.innerHTML = "";
+    if (!history.length) {
+      const empty = document.createElement("li");
+      empty.className = "history-empty";
+      empty.textContent = "还没有发送记录";
+      historyList.appendChild(empty);
+      return;
+    }
+    history.slice().reverse().forEach((item) => {
+      const li = document.createElement("li");
+      li.className = "history-item";
+
+      const text = document.createElement("span");
+      text.className = "history-text";
+      text.textContent = item.t;
+
+      const time = document.createElement("span");
+      time.className = "history-time";
+      time.textContent = fullTime(item.ts);
+
+      li.appendChild(text);
+      li.appendChild(time);
+      historyList.appendChild(li);
+    });
+  }
+
   function sendMessage(text) {
     const cleanText = text.trim().slice(0, MAX_LEN);
     if (!cleanText) {
@@ -563,8 +742,12 @@
     queue.push({ t: cleanText, ts: Date.now() });
     const trimmed = queue.slice(-MAX_QUEUE);
     saveQueue(trimmed);
+    const history = loadHistory();
+    history.push({ t: cleanText, ts: Date.now() });
+    saveHistory(history.slice(-MAX_HISTORY));
+    renderHistory();
     client.publish(TOPIC, JSON.stringify({ msgs: trimmed }), { retain: true, qos: 1 });
-    showOnScreen(cleanText, "已发送");
+    showOnScreen(cleanText, "已发送", nowHM());
     message.value = "";
     updateMeasurements("");
     delivery.textContent = "已发送，等她看到…";
@@ -582,7 +765,7 @@
     }
     updateMeasurements(message.value);
     if (message.value.trim()) {
-      showOnScreen(message.value, "草稿预览", false);
+      showOnScreen(message.value, "草稿预览", "", false);
     }
   });
 
@@ -591,7 +774,13 @@
   });
 
   updateMeasurements("");
-  showOnScreen("今天也要开心", "示例消息", false);
+  showOnScreen("今天也要开心", "示例消息", "", false);
+  renderHistory();
+
+  historyClear.addEventListener("click", () => {
+    saveHistory([]);
+    renderHistory();
+  });
 
   function fitScreenPreview() {
     const card = document.querySelector(".device-card");
