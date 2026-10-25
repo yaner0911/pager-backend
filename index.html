@@ -673,10 +673,10 @@ safe-buffer/index.js:
   function showOnScreen(text, state, sentTime = "", animate = true) {
     const body = text || "等一句想说的话…";
     screenMessage.innerHTML = escapeHtml(body) + (sentTime
-      ? '<span class="screen-time-inline">' + escapeHtml(sentTime) + ' &lt;3</span>'
+      ? '<span class="screen-time-inline">' + escapeHtml(sentTime) + '</span>'
       : "");
     previewState.textContent = state;
-    screenClock.textContent = nowHM();
+    screenClock.textContent = nowHM() + " <3";
     screenStatus.textContent = "MOM / SYNC OK";
     const overflow = screenMessage.scrollHeight > 65;
     screenFit.textContent = overflow ? "内容超出屏幕" : "可完整显示";
