@@ -579,6 +579,7 @@
 (() => {
   const TOPIC = "yaner0911/mommy/msg";
   const REPLY_TOPIC = "yaner0911/mommy/reply";
+  const HISTORY_BASE = "yaner0911/mommy/history";
   const MAX_LEN = 15;
   const MAX_QUEUE = 5;
   const QUEUE_KEY = "pager-queue-v1";
@@ -747,6 +748,7 @@
     saveHistory(history.slice(-MAX_HISTORY));
     renderHistory();
     client.publish(TOPIC, JSON.stringify({ msgs: trimmed }), { retain: true, qos: 1 });
+    client.publish(HISTORY_BASE + "/" + Date.now(), JSON.stringify({ t: cleanText, ts: Date.now() }), { retain: true, qos: 1 });
     showOnScreen(cleanText, "已发送", nowHM());
     message.value = "";
     updateMeasurements("");
@@ -802,7 +804,7 @@
 
   client.on("connect", () => {
     setConnection("已连接", true);
-    client.subscribe([TOPIC, REPLY_TOPIC]);
+    client.subscribe([TOPIC, REPLY_TOPIC, HISTORY_BASE + "/#"]);
   });
 
   client.on("message", (topic, payload) => {
@@ -821,6 +823,21 @@
       }
       showOnScreen(text, "来自 MQTT");
       announcement.textContent = "挂件收到消息：" + text;
+    } else if (topic.startsWith(HISTORY_BASE + "/")) {
+      try {
+        const parsed = JSON.parse(text);
+        if (parsed && parsed.t) {
+          const history = loadHistory();
+          const exists = history.some((item) => item.ts === parsed.ts && item.t === parsed.t);
+          if (!exists) {
+            history.push({ t: parsed.t, ts: parsed.ts });
+            saveHistory(history.slice(-MAX_HISTORY));
+            renderHistory();
+          }
+        }
+      } catch (error) {
+        // 忽略损坏的历史条目
+      }
     } else if (topic === REPLY_TOPIC) {
       delivery.textContent = "她看到了 ❤️ " + text;
     }
