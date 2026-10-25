@@ -53,9 +53,8 @@
     border: 1px solid var(--ink);
     border-radius: 50%;
     background: rgba(255,253,249,.65);
-    font-family: Georgia, serif;
-    font-size: 21px;
-    font-style: italic;
+    font-family: "Segoe UI Emoji", "Apple Color Emoji", sans-serif;
+    font-size: 20px;
   }
   .brand-copy strong {
     display: block;
@@ -346,18 +345,11 @@
   .device-meta {
     display: flex;
     width: calc(250px * var(--screen-scale));
-    justify-content: space-between;
+    justify-content: flex-end;
     margin: 14px auto 0;
     color: #746d63;
     font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
     font-size: 9px;
-  }
-  .caption {
-    margin: 13px 0 0;
-    color: #796f64;
-    text-align: center;
-    font-size: 10px;
-    line-height: 1.65;
   }
   .footer {
     display: flex;
@@ -398,7 +390,7 @@
 <main class="page">
   <nav class="topbar" aria-label="页面状态">
     <div class="brand">
-      <div class="brand-mark">P</div>
+      <div class="brand-mark">🐰</div>
       <div class="brand-copy">
         <strong>陪伴挂件</strong>
         <span>WRITE · SEND · KEEP</span>
@@ -419,12 +411,12 @@
         <h2 id="composeTitle">写一句想说的话</h2>
         <p>屏幕较小，建议控制在 15 字以内。</p>
       </div>
-      <span class="counter"><b id="charCount">0</b> / 511</span>
+      <span class="counter"><b id="charCount">0</b> / 15</span>
     </div>
 
     <form id="messageForm">
       <label class="sr-only" for="message">消息内容</label>
-      <textarea id="message" maxlength="511" placeholder="比如：今天也要开心…"></textarea>
+      <textarea id="message" maxlength="15" placeholder="比如：今天也要开心…"></textarea>
       <p class="field-help" id="fieldHelp" aria-live="polite">写下后将实时预览在挂件上。</p>
       <button class="send" type="submit">
         发 送
@@ -459,10 +451,8 @@
       </div>
     </div>
     <div class="device-meta">
-      <span>250 × 122 PX</span>
       <span id="screenFit">可完整显示</span>
     </div>
-    <p class="caption">2.13 英寸柔性墨水屏 · 横向显示 · 30 分钟唤醒一次</p>
   </section>
 
   <footer class="footer">
@@ -476,7 +466,9 @@
 (() => {
   const TOPIC = "yaner0911/mommy/msg";
   const REPLY_TOPIC = "yaner0911/mommy/reply";
-  const MAX_LEN = 511;
+  const MAX_LEN = 15;
+  const MAX_QUEUE = 5;
+  const QUEUE_KEY = "pager-queue-v1";
 
   const form = document.getElementById("messageForm");
   const message = document.getElementById("message");
@@ -536,6 +528,23 @@
     connection.classList.toggle("live", isLive);
   }
 
+  function loadQueue() {
+    try {
+      const parsed = JSON.parse(localStorage.getItem(QUEUE_KEY) || "[]");
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (error) {
+      return [];
+    }
+  }
+
+  function saveQueue(queue) {
+    try {
+      localStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
+    } catch (error) {
+      // 隐私模式或存储不可用时静默跳过
+    }
+  }
+
   function sendMessage(text) {
     const cleanText = text.trim().slice(0, MAX_LEN);
     if (!cleanText) {
@@ -550,7 +559,11 @@
       return;
     }
 
-    client.publish(TOPIC, cleanText, { retain: true, qos: 1 });
+    const queue = loadQueue();
+    queue.push({ t: cleanText, ts: Date.now() });
+    const trimmed = queue.slice(-MAX_QUEUE);
+    saveQueue(trimmed);
+    client.publish(TOPIC, JSON.stringify({ msgs: trimmed }), { retain: true, qos: 1 });
     showOnScreen(cleanText, "已发送");
     message.value = "";
     updateMeasurements("");
@@ -564,6 +577,9 @@
   });
 
   message.addEventListener("input", () => {
+    if (countCharacters(message.value) > MAX_LEN) {
+      message.value = Array.from(message.value).slice(0, MAX_LEN).join("");
+    }
     updateMeasurements(message.value);
     if (message.value.trim()) {
       showOnScreen(message.value, "草稿预览", false);
@@ -603,6 +619,17 @@
   client.on("message", (topic, payload) => {
     const text = payload.toString();
     if (topic === TOPIC) {
+      try {
+        const parsed = JSON.parse(text);
+        if (parsed && Array.isArray(parsed.msgs) && parsed.msgs.length) {
+          const latest = parsed.msgs[parsed.msgs.length - 1];
+          showOnScreen(latest.t || text, "来自 MQTT");
+          announcement.textContent = "挂件收到消息：" + (latest.t || text);
+          return;
+        }
+      } catch (error) {
+        // 旧格式纯文本回退
+      }
       showOnScreen(text, "来自 MQTT");
       announcement.textContent = "挂件收到消息：" + text;
     } else if (topic === REPLY_TOPIC) {
