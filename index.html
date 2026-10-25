@@ -486,6 +486,8 @@ safe-buffer/index.js:
   const TOPIC = "yaner0911/mommy/msg";
   const REPLY_TOPIC = "yaner0911/mommy/reply";
   const MAX_LEN = 15;
+  const MAX_QUEUE = 5;
+  const QUEUE_KEY = "pager-queue-v1";
 
   const form = document.getElementById("messageForm");
   const message = document.getElementById("message");
@@ -545,6 +547,23 @@ safe-buffer/index.js:
     connection.classList.toggle("live", isLive);
   }
 
+  function loadQueue() {
+    try {
+      const parsed = JSON.parse(localStorage.getItem(QUEUE_KEY) || "[]");
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (error) {
+      return [];
+    }
+  }
+
+  function saveQueue(queue) {
+    try {
+      localStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
+    } catch (error) {
+      // 隐私模式或存储不可用时静默跳过
+    }
+  }
+
   function sendMessage(text) {
     const cleanText = text.trim().slice(0, MAX_LEN);
     if (!cleanText) {
@@ -559,7 +578,11 @@ safe-buffer/index.js:
       return;
     }
 
-    client.publish(TOPIC, cleanText, { retain: true, qos: 1 });
+    const queue = loadQueue();
+    queue.push({ t: cleanText, ts: Date.now() });
+    const trimmed = queue.slice(-MAX_QUEUE);
+    saveQueue(trimmed);
+    client.publish(TOPIC, JSON.stringify({ msgs: trimmed }), { retain: true, qos: 1 });
     showOnScreen(cleanText, "已发送");
     message.value = "";
     updateMeasurements("");
@@ -615,6 +638,17 @@ safe-buffer/index.js:
   client.on("message", (topic, payload) => {
     const text = payload.toString();
     if (topic === TOPIC) {
+      try {
+        const parsed = JSON.parse(text);
+        if (parsed && Array.isArray(parsed.msgs) && parsed.msgs.length) {
+          const latest = parsed.msgs[parsed.msgs.length - 1];
+          showOnScreen(latest.t || text, "来自 MQTT");
+          announcement.textContent = "挂件收到消息：" + (latest.t || text);
+          return;
+        }
+      } catch (error) {
+        // 旧格式纯文本回退
+      }
       showOnScreen(text, "来自 MQTT");
       announcement.textContent = "挂件收到消息：" + text;
     } else if (topic === REPLY_TOPIC) {
