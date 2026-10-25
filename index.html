@@ -572,7 +572,7 @@ safe-buffer/index.js:
           <div class="screen-line bottom" aria-hidden="true"></div>
           <div class="screen-bottom">
             <span id="screenStatus">MOM / SYNC OK</span>
-            <span class="screen-face">=^. .^=</span>
+            <span class="screen-face">(=^_^=)</span>
           </div>
         </div>
       </div>
@@ -673,7 +673,7 @@ safe-buffer/index.js:
   function showOnScreen(text, state, sentTime = "", animate = true) {
     const body = text || "等一句想说的话…";
     screenMessage.innerHTML = escapeHtml(body) + (sentTime
-      ? '<span class="screen-time-inline">' + escapeHtml(sentTime) + '</span>'
+      ? '<span class="screen-time-inline">' + escapeHtml(sentTime) + ' &lt;3</span>'
       : "");
     previewState.textContent = state;
     screenClock.textContent = nowHM();
