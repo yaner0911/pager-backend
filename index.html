@@ -375,6 +375,17 @@ safe-buffer/index.js:
     font-size: 12px;
     line-height: 15px;
   }
+  .screen-heart {
+    display: inline-flex;
+    align-items: center;
+    margin-left: 4px;
+  }
+  .screen-heart svg {
+    display: block;
+    width: 10px;
+    height: 10px;
+    fill: #171715;
+  }
   .screen-icons {
     display: flex;
     align-items: center;
@@ -447,6 +458,20 @@ safe-buffer/index.js:
   .history-item:first-child { border-top: 0; }
   .history-text { color: var(--ink); font-size: 14px; }
   .history-time { flex: 0 0 auto; color: var(--muted); font-size: 11px; white-space: nowrap; }
+  .history-pin {
+    flex: 0 0 auto;
+    border: 0;
+    padding: 3px 7px;
+    border-radius: 7px;
+    color: var(--rose-deep);
+    background: var(--rose-soft);
+    cursor: pointer;
+    font-size: 10px;
+  }
+  .history-pin.is-pinned {
+    color: #fff;
+    background: var(--rose-deep);
+  }
   .history-empty { color: var(--muted); font-size: 12px; padding: 8px 2px; }
   .screen-page.is-refreshing { animation: eink-refresh .58s steps(2, end); }
   @keyframes eink-refresh {
@@ -542,8 +567,8 @@ safe-buffer/index.js:
     <p class="quick-title">快捷短语</p>
     <div class="quick-list" aria-label="快捷短语">
       <button class="quick" type="button" data-message="我想你啦">我想你啦</button>
-      <button class="quick" type="button" data-message="今天也要开心">今天也要开心</button>
-      <button class="quick" type="button" data-message="要记得吃饭">要记得吃饭</button>
+      <button class="quick" type="button" data-message="心情怎么样">心情怎么样</button>
+      <button class="quick" type="button" data-message="饿了记得吃东西">饿了记得吃东西</button>
       <button class="quick" type="button" data-message="抱抱">抱抱</button>
     </div>
 
@@ -561,6 +586,25 @@ safe-buffer/index.js:
         <div class="screen-page" id="screenPage">
           <div class="screen-top">
             <span id="screenClock">--:--</span>
+            <span class="screen-heart" aria-hidden="true">
+              <svg viewBox="0 0 9 8" shape-rendering="crispEdges">
+                <rect x="3" y="0" width="1" height="1"/>
+                <rect x="5" y="0" width="1" height="1"/>
+                <rect x="2" y="1" width="1" height="1"/>
+                <rect x="6" y="1" width="1" height="1"/>
+                <rect x="1" y="2" width="1" height="1"/>
+                <rect x="7" y="2" width="1" height="1"/>
+                <rect x="0" y="3" width="1" height="1"/>
+                <rect x="8" y="3" width="1" height="1"/>
+                <rect x="1" y="4" width="1" height="1"/>
+                <rect x="7" y="4" width="1" height="1"/>
+                <rect x="2" y="5" width="1" height="1"/>
+                <rect x="6" y="5" width="1" height="1"/>
+                <rect x="3" y="6" width="1" height="1"/>
+                <rect x="5" y="6" width="1" height="1"/>
+                <rect x="4" y="7" width="1" height="1"/>
+              </svg>
+            </span>
             <span class="screen-icons">
               <span class="screen-sig" aria-hidden="true">▂▄▆</span>
               <span class="screen-batt" aria-hidden="true">▮▮▮▮</span>
@@ -606,6 +650,7 @@ safe-buffer/index.js:
   const MAX_QUEUE = 5;
   const QUEUE_KEY = "pager-queue-v1";
   const HISTORY_KEY = "pager-history-v1";
+  const PIN_KEY = "pager-pin-v1";
   const MAX_HISTORY = 200;
 
   const form = document.getElementById("messageForm");
@@ -676,7 +721,7 @@ safe-buffer/index.js:
       ? '<span class="screen-time-inline">' + escapeHtml(sentTime) + '</span>'
       : "");
     previewState.textContent = state;
-    screenClock.textContent = nowHM() + " <3";
+    screenClock.textContent = nowHM();
     screenStatus.textContent = "MOM / SYNC OK";
     const overflow = screenMessage.scrollHeight > 65;
     screenFit.textContent = overflow ? "内容超出屏幕" : "可完整显示";
@@ -710,6 +755,29 @@ safe-buffer/index.js:
     }
   }
 
+  function loadPin() {
+    try {
+      return JSON.parse(localStorage.getItem(PIN_KEY) || "null");
+    } catch (error) {
+      return null;
+    }
+  }
+
+  function savePin(pin) {
+    try {
+      localStorage.setItem(PIN_KEY, JSON.stringify(pin || null));
+    } catch (error) {
+      // 忽略存储异常
+    }
+  }
+
+  function publishCurrent() {
+    if (!client.connected) return;
+    const queue = loadQueue();
+    const pin = loadPin();
+    client.publish(TOPIC, JSON.stringify({ pinned: pin, msgs: queue.slice(-MAX_QUEUE) }), { retain: true, qos: 1 });
+  }
+
   function loadHistory() {
     try {
       const parsed = JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]");
@@ -729,6 +797,7 @@ safe-buffer/index.js:
 
   function renderHistory() {
     const history = loadHistory();
+    const pin = loadPin();
     historyList.innerHTML = "";
     if (!history.length) {
       const empty = document.createElement("li");
@@ -749,8 +818,20 @@ safe-buffer/index.js:
       time.className = "history-time";
       time.textContent = fullTime(item.ts);
 
+      const pinButton = document.createElement("button");
+      pinButton.type = "button";
+      pinButton.className = "history-pin" + (pin && pin.ts === item.ts ? " is-pinned" : "");
+      pinButton.textContent = pin && pin.ts === item.ts ? "已置顶" : "置顶";
+      pinButton.addEventListener("click", () => {
+        const next = pin && pin.ts === item.ts ? null : { t: item.t, ts: item.ts };
+        savePin(next);
+        renderHistory();
+        publishCurrent();
+      });
+
       li.appendChild(text);
       li.appendChild(time);
+      li.appendChild(pinButton);
       historyList.appendChild(li);
     });
   }
@@ -777,7 +858,7 @@ safe-buffer/index.js:
     history.push({ t: cleanText, ts: Date.now() });
     saveHistory(history.slice(-MAX_HISTORY));
     renderHistory();
-    client.publish(TOPIC, JSON.stringify({ msgs: trimmed }), { retain: true, qos: 1 });
+    publishCurrent();
     client.publish(HISTORY_BASE + "/" + Date.now(), JSON.stringify({ t: cleanText, ts: Date.now() }), { retain: true, qos: 1 });
     showOnScreen(cleanText, "已发送", nowHM());
     message.value = "";
@@ -802,7 +883,12 @@ safe-buffer/index.js:
   });
 
   document.querySelectorAll("[data-message]").forEach((button) => {
-    button.addEventListener("click", () => sendMessage(button.dataset.message));
+    button.addEventListener("click", () => {
+      message.value = button.dataset.message;
+      updateMeasurements(message.value);
+      showOnScreen(message.value, "待发送", "", false);
+      message.focus();
+    });
   });
 
   updateMeasurements("");
@@ -843,6 +929,9 @@ safe-buffer/index.js:
       try {
         const parsed = JSON.parse(text);
         if (parsed && Array.isArray(parsed.msgs) && parsed.msgs.length) {
+          if (parsed.pinned !== undefined) {
+            savePin(parsed.pinned);
+          }
           const latest = parsed.msgs[parsed.msgs.length - 1];
           showOnScreen(latest.t || text, "来自 MQTT");
           announcement.textContent = "挂件收到消息：" + (latest.t || text);
