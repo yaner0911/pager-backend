@@ -637,7 +637,7 @@ safe-buffer/index.js:
 
     <form id="messageForm">
       <label class="sr-only" for="message">消息内容</label>
-      <textarea id="message" maxlength="40" placeholder="比如：心情怎么样…"></textarea>
+      <textarea id="message" placeholder="比如：心情怎么样…"></textarea>
       <p class="field-help" id="fieldHelp" aria-live="polite">写下后将实时预览在挂件上。</p>
       <button class="send" type="submit">
         发 送
@@ -715,7 +715,7 @@ safe-buffer/index.js:
       <h2 id="scheduleTitle">播放时间表</h2>
       <span>每天</span>
     </div>
-    <p class="schedule-note">06:50 开始，每 40 分钟自动播放一轮，23:30 后停止；夜间新消息仍会立即显示。</p>
+    <p class="schedule-note">06:50 开始，每 40 分钟醒来播放一轮，最后一轮是 23:30；其余时间深度睡眠，新消息在下一个时间点显示。</p>
     <div class="schedule-grid" id="scheduleGrid"></div>
   </section>
 
@@ -828,7 +828,9 @@ safe-buffer/index.js:
   }
 
   function historyKey(item) {
-    return `${item.t || ""}|${item.hm || fullTime(item.ts).slice(0, 16)}`;
+    if (!item) return "";
+    if (item.ts) return String(item.ts);
+    return `${item.t || ""}|${item.hm || ""}`;
   }
 
   function dedupeHistory(history) {
@@ -869,7 +871,7 @@ safe-buffer/index.js:
       setConnection("还没连上", false);
       return false;
     }
-    client.publish(CMD_TOPIC, JSON.stringify(command), { retain: false, qos: 1 });
+    client.publish(CMD_TOPIC, JSON.stringify(command), { retain: true, qos: 1 });
     return true;
   }
 
@@ -1039,7 +1041,7 @@ safe-buffer/index.js:
   }
 
   function sendMessage(text) {
-    const cleanText = text.trim().slice(0, MAX_LEN);
+    const cleanText = Array.from(text.trim()).slice(0, MAX_LEN).join("");
     if (!cleanText) {
       fieldHelp.textContent = "先写一句想说的话。";
       fieldHelp.classList.add("warning");
@@ -1122,7 +1124,7 @@ safe-buffer/index.js:
 
   wifiReset.addEventListener("click", () => {
     if (sendCommand({ cmd: "resetwifi" })) {
-      setupStatus.textContent = "已发送，挂件将重启并进入 Pager-Setup";
+      setupStatus.textContent = "已发送；挂件下次联网时会清除旧 WiFi 并进入 Pager-Setup";
     }
   });
 
@@ -1155,11 +1157,14 @@ safe-buffer/index.js:
     if (topic === TOPIC) {
       try {
         const parsed = JSON.parse(text);
-        if (parsed && Array.isArray(parsed.msgs) && parsed.msgs.length) {
+        if (parsed && (parsed.pinned || (Array.isArray(parsed.msgs) && parsed.msgs.length))) {
           if (parsed.pinned !== undefined) {
             savePin(parsed.pinned);
+            renderHistory();
           }
-          const latest = parsed.msgs[parsed.msgs.length - 1];
+          const latest = Array.isArray(parsed.msgs) && parsed.msgs.length
+            ? parsed.msgs[parsed.msgs.length - 1]
+            : parsed.pinned;
           showOnScreen(latest.t || text, "来自 MQTT", latest.dt || fullTime(latest.ts));
           announcement.textContent = "挂件收到消息：" + (latest.t || text);
           return;
