@@ -916,6 +916,18 @@ safe-buffer/index.js:
     }
   }
 
+  function mergeQueue(items) {
+    const merged = new Map();
+    [...loadQueue(), ...(items || [])].forEach((item) => {
+      if (item && item.t && item.ts) merged.set(String(item.ts), item);
+    });
+    const queue = Array.from(merged.values())
+      .sort((a, b) => a.ts - b.ts)
+      .slice(-MAX_QUEUE);
+    saveQueue(queue);
+    return queue;
+  }
+
   function loadPin() {
     try {
       return JSON.parse(localStorage.getItem(PIN_KEY) || "null");
@@ -1149,7 +1161,6 @@ safe-buffer/index.js:
   client.on("connect", () => {
     setConnection("已连接", true);
     client.subscribe([TOPIC, REPLY_TOPIC, HISTORY_BASE + "/#"]);
-    publishCurrent();
   });
 
   client.on("message", (topic, payload) => {
@@ -1162,9 +1173,11 @@ safe-buffer/index.js:
             savePin(parsed.pinned);
             renderHistory();
           }
-          const latest = Array.isArray(parsed.msgs) && parsed.msgs.length
-            ? parsed.msgs[parsed.msgs.length - 1]
-            : parsed.pinned;
+          const incoming = Array.isArray(parsed.msgs) ? parsed.msgs : [];
+          mergeQueue(incoming);
+          const candidates = [...incoming, ...(parsed.pinned ? [parsed.pinned] : [])]
+            .filter((item) => item && item.t && item.ts);
+          const latest = candidates.sort((a, b) => b.ts - a.ts)[0];
           showOnScreen(latest.t || text, "来自 MQTT", latest.dt || fullTime(latest.ts));
           announcement.textContent = "挂件收到消息：" + (latest.t || text);
           return;
