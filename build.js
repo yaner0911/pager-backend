@@ -13,7 +13,7 @@ if (!src.includes(tag)) {
   throw new Error("CDN script tag not found in index_src.html");
 }
 
-const out = src.replace(tag, "<script>" + js + "</script>");
+const out = src.replace(tag, () => "<script>" + js + "</script>");
 fs.writeFileSync(path.join(dir, "index.html"), out, "utf8");
 console.log("done, index.html 大小 =", Buffer.byteLength(out), "字节");
 console.log("还引用 CDN 吗:", out.includes("cdn.jsdelivr.net"));
