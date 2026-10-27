@@ -462,6 +462,46 @@
   }
   .screen-face { color: #171715; }
   .history-card { margin-top: 15px; padding: 20px 18px 16px; }
+  .schedule-card { margin-top: 15px; padding: 20px 18px; }
+  .schedule-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .schedule-head h2 {
+    margin: 0;
+    font-family: "Noto Serif SC", "Songti SC", SimSun, serif;
+    font-size: 19px;
+    font-weight: 600;
+  }
+  .schedule-head span { color: var(--muted); font-size: 10px; }
+  .schedule-note {
+    margin: 8px 0 14px;
+    color: var(--muted);
+    font-size: 11px;
+    line-height: 1.6;
+  }
+  .schedule-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 7px;
+  }
+  .schedule-time {
+    padding: 7px 4px;
+    border: 1px solid #ead4da;
+    border-radius: 9px;
+    color: var(--rose-deep);
+    background: var(--rose-soft);
+    font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+    font-size: 11px;
+    text-align: center;
+  }
+  .schedule-time.is-next {
+    color: #fff;
+    border-color: var(--ink);
+    background: var(--ink);
+  }
   .history-head {
     display: flex;
     align-items: center;
@@ -690,6 +730,15 @@
     </div>
   </section>
 
+  <section class="card schedule-card" aria-labelledby="scheduleTitle">
+    <div class="schedule-head">
+      <h2 id="scheduleTitle">播放时间表</h2>
+      <span>每天</span>
+    </div>
+    <p class="schedule-note">06:50 开始，每 40 分钟自动播放一轮，23:30 后停止；夜间新消息仍会立即显示。</p>
+    <div class="schedule-grid" id="scheduleGrid"></div>
+  </section>
+
   <section class="card history-card" aria-labelledby="historyTitle">
     <div class="history-head">
       <h2 id="historyTitle">历史消息</h2>
@@ -711,6 +760,9 @@
   const REPLY_TOPIC = "yaner0911/mommy/reply";
   const HISTORY_BASE = "yaner0911/mommy/history";
   const CMD_TOPIC = "yaner0911/mommy/cmd";
+  const SCHEDULE_START = 6 * 60 + 50;
+  const SCHEDULE_END = 23 * 60 + 30;
+  const SCHEDULE_STEP = 40;
   const MAX_LEN = 40;
   const MAX_QUEUE = 5;
   const QUEUE_KEY = "pager-queue-v1";
@@ -738,6 +790,7 @@
   const screenStatus = document.getElementById("screenStatus");
   const historyList = document.getElementById("historyList");
   const historyClear = document.getElementById("historyClear");
+  const scheduleGrid = document.getElementById("scheduleGrid");
   const announcement = document.getElementById("announcement");
   let refreshTimer;
 
@@ -841,6 +894,30 @@
     }
     client.publish(CMD_TOPIC, JSON.stringify(command), { retain: false, qos: 1 });
     return true;
+  }
+
+  function renderSchedule() {
+    const now = new Date();
+    const nowMinute = now.getHours() * 60 + now.getMinutes();
+    let nextMinute = null;
+    scheduleGrid.innerHTML = "";
+
+    for (let minute = SCHEDULE_START; minute <= SCHEDULE_END; minute += SCHEDULE_STEP) {
+      if (minute >= nowMinute && nextMinute === null && nowMinute <= SCHEDULE_END) {
+        nextMinute = minute;
+      }
+      const item = document.createElement("div");
+      item.className = "schedule-time";
+      item.textContent =
+        String(Math.floor(minute / 60)).padStart(2, "0") + ":" +
+        String(minute % 60).padStart(2, "0");
+      item.dataset.minute = minute;
+      scheduleGrid.appendChild(item);
+    }
+
+    if (nextMinute === null) nextMinute = SCHEDULE_START;
+    const nextItem = scheduleGrid.querySelector(`[data-minute="${nextMinute}"]`);
+    if (nextItem) nextItem.classList.add("is-next");
   }
 
   function loadQueue() {
@@ -1049,6 +1126,8 @@
     showOnScreen("心情怎么样", "示例消息", "", false);
   }
   renderHistory();
+  renderSchedule();
+  setInterval(renderSchedule, 60000);
 
   historyClear.addEventListener("click", () => {
     const history = loadHistory();
