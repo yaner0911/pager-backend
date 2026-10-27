@@ -1161,6 +1161,7 @@ safe-buffer/index.js:
   client.on("connect", () => {
     setConnection("已连接", true);
     client.subscribe([TOPIC, REPLY_TOPIC, HISTORY_BASE + "/#"]);
+    if (loadQueue().length || loadPin()) publishCurrent();
   });
 
   client.on("message", (topic, payload) => {
