@@ -511,7 +511,15 @@
     border-top: 1px solid #eee4e0;
   }
   .history-item:first-child { border-top: 0; }
+  .history-copy { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
   .history-text { color: var(--ink); font-size: 14px; }
+  .history-face {
+    color: var(--ink);
+    opacity: .38;
+    font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+    font-size: 11px;
+    letter-spacing: .02em;
+  }
   .history-time { flex: 0 0 auto; color: var(--muted); font-size: 11px; white-space: nowrap; }
   .history-pin {
     flex: 0 0 auto;
@@ -1021,9 +1029,19 @@
       const li = document.createElement("li");
       li.className = "history-item";
 
+      const copy = document.createElement("span");
+      copy.className = "history-copy";
+
       const text = document.createElement("span");
       text.className = "history-text";
       text.textContent = item.t;
+
+      const face = document.createElement("span");
+      face.className = "history-face";
+      face.textContent = item.face || DEFAULT_FACE;
+
+      copy.appendChild(text);
+      copy.appendChild(face);
 
       const time = document.createElement("span");
       time.className = "history-time";
@@ -1071,7 +1089,7 @@
       actions.appendChild(pinButton);
       actions.appendChild(deleteButton);
 
-      li.appendChild(text);
+      li.appendChild(copy);
       li.appendChild(time);
       li.appendChild(actions);
       historyList.appendChild(li);
