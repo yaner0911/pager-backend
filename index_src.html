@@ -221,44 +221,14 @@
     padding-top: 15px;
     border-top: 1px solid #eee4e0;
   }
-  .setup-title {
-    margin: 0 0 10px;
-    color: var(--ink);
-    font-size: 14px;
-    font-weight: 650;
-  }
-  .setup-note {
-    margin: 0 0 10px;
-    color: var(--muted);
-    font-size: 10px;
-    line-height: 1.5;
-  }
-  .setup-input {
-    display: block;
-    width: 100%;
-    margin-top: 8px;
-    padding: 11px 12px;
-    border: 1px solid var(--line);
-    border-radius: 12px;
-    outline: none;
-    color: var(--ink);
-    background: #fff;
-    font-size: 13px;
-  }
-  .setup-actions {
-    display: flex;
-    gap: 8px;
-    margin-top: 10px;
-  }
   .setup-btn {
-    flex: 1;
+    width: 100%;
     padding: 11px 12px;
     border: 0;
     border-radius: 12px;
     cursor: pointer;
     font-size: 13px;
   }
-  .setup-btn.primary { color: #fff; background: var(--ink); }
   .setup-btn.ghost { color: var(--ink); background: #eee7e0; }
   .setup-status {
     min-height: 16px;
@@ -669,16 +639,7 @@
     <div class="delivery" id="delivery" aria-live="polite">她还没有看到新消息</div>
 
     <div class="setup">
-      <p class="setup-title">设备配网</p>
-      <p class="setup-note">WiFi 密码会经公共消息服务中转，请勿用于重要或敏感网络。</p>
-      <label class="sr-only" for="wifiSsid">WiFi 名称</label>
-      <input class="setup-input" id="wifiSsid" type="text" placeholder="WiFi 名称（仅 2.4GHz）" autocomplete="off">
-      <label class="sr-only" for="wifiPass">WiFi 密码</label>
-      <input class="setup-input" id="wifiPass" type="password" placeholder="WiFi 密码" autocomplete="off">
-      <div class="setup-actions">
-        <button class="setup-btn primary" id="wifiSave" type="button">保存并连接</button>
-        <button class="setup-btn ghost" id="wifiReset" type="button">重新配网</button>
-      </div>
+      <button class="setup-btn ghost" id="wifiReset" type="button">重新配网</button>
       <p class="setup-status" id="setupStatus" aria-live="polite"></p>
     </div>
   </section>
@@ -775,9 +736,6 @@
   const charCount = document.getElementById("charCount");
   const fieldHelp = document.getElementById("fieldHelp");
   const delivery = document.getElementById("delivery");
-  const wifiSsid = document.getElementById("wifiSsid");
-  const wifiPass = document.getElementById("wifiPass");
-  const wifiSave = document.getElementById("wifiSave");
   const wifiReset = document.getElementById("wifiReset");
   const setupStatus = document.getElementById("setupStatus");
   const connection = document.getElementById("connection");
@@ -1141,20 +1099,6 @@
     saveQueue([]);
     renderHistory();
     publishCurrent();
-  });
-
-  wifiSave.addEventListener("click", () => {
-    const ssid = wifiSsid.value.trim();
-    const pass = wifiPass.value;
-    if (!ssid) {
-      setupStatus.textContent = "请先填写 WiFi 名称";
-      return;
-    }
-    if (sendCommand({ cmd: "setwifi", ssid: ssid, pass: pass })) {
-      setupStatus.textContent = "已发送，挂件将重启并连接新 WiFi";
-      wifiSsid.value = "";
-      wifiPass.value = "";
-    }
   });
 
   wifiReset.addEventListener("click", () => {
