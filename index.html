@@ -899,7 +899,11 @@ safe-buffer/index.js:
     if (!client.connected) return;
     const queue = loadQueue();
     const pin = loadPin();
-    const enrich = (item) => item ? { ...item, hm: item.hm || hmFromTs(item.ts) } : null;
+    const enrich = (item) => item ? {
+      ...item,
+      hm: item.hm || hmFromTs(item.ts),
+      dt: item.dt || fullTime(item.ts)
+    } : null;
     const recent = queue
       .filter((item) => item && item.t && item.ts)
       .sort((a, b) => a.ts - b.ts)
@@ -956,7 +960,12 @@ safe-buffer/index.js:
       pinButton.className = "history-pin" + (pin && pin.ts === item.ts ? " is-pinned" : "");
       pinButton.textContent = pin && pin.ts === item.ts ? "已置顶" : "置顶";
       pinButton.addEventListener("click", () => {
-        const next = pin && pin.ts === item.ts ? null : { t: item.t, ts: item.ts, hm: item.hm || "" };
+        const next = pin && pin.ts === item.ts ? null : {
+          t: item.t,
+          ts: item.ts,
+          hm: item.hm || "",
+          dt: item.dt || fullTime(item.ts)
+        };
         savePin(next);
         renderHistory();
         publishCurrent();
@@ -1010,16 +1019,16 @@ safe-buffer/index.js:
 
     const sentAt = Date.now();
     const queue = loadQueue();
-    queue.push({ t: cleanText, ts: sentAt, hm: nowHM() });
+    queue.push({ t: cleanText, ts: sentAt, hm: nowHM(), dt: fullTime(sentAt) });
     const trimmed = queue.slice(-MAX_QUEUE);
     saveQueue(trimmed);
     const history = loadHistory();
-    history.push({ t: cleanText, ts: sentAt, hm: nowHM(), _topic: HISTORY_BASE + "/" + sentAt });
+    history.push({ t: cleanText, ts: sentAt, hm: nowHM(), dt: fullTime(sentAt), _topic: HISTORY_BASE + "/" + sentAt });
     saveHistory(history.slice(-MAX_HISTORY));
     renderHistory();
     publishCurrent();
-    client.publish(HISTORY_BASE + "/" + sentAt, JSON.stringify({ t: cleanText, ts: sentAt, hm: nowHM() }), { retain: true, qos: 1 });
-    showOnScreen(cleanText, "已发送", nowHM());
+    client.publish(HISTORY_BASE + "/" + sentAt, JSON.stringify({ t: cleanText, ts: sentAt, hm: nowHM(), dt: fullTime(sentAt) }), { retain: true, qos: 1 });
+    showOnScreen(cleanText, "已发送", fullTime(sentAt));
     message.value = "";
     updateMeasurements("");
     delivery.textContent = "已发送，等她看到…";
@@ -1054,7 +1063,7 @@ safe-buffer/index.js:
   const previewHistory = loadHistory();
   const previewLatest = previewHistory[previewHistory.length - 1];
   if (previewLatest) {
-    showOnScreen(previewLatest.t, "历史消息", previewLatest.hm || hmFromTs(previewLatest.ts), false);
+    showOnScreen(previewLatest.t, "历史消息", previewLatest.dt || fullTime(previewLatest.ts), false);
   } else {
     showOnScreen("心情怎么样", "示例消息", "", false);
   }
@@ -1128,7 +1137,7 @@ safe-buffer/index.js:
             savePin(parsed.pinned);
           }
           const latest = parsed.msgs[parsed.msgs.length - 1];
-          showOnScreen(latest.t || text, "来自 MQTT", latest.hm || hmFromTs(latest.ts));
+          showOnScreen(latest.t || text, "来自 MQTT", latest.dt || fullTime(latest.ts));
           announcement.textContent = "挂件收到消息：" + (latest.t || text);
           return;
         }
@@ -1146,6 +1155,7 @@ safe-buffer/index.js:
             t: parsed.t,
             ts: parsed.ts,
             hm: parsed.hm || hmFromTs(parsed.ts),
+            dt: parsed.dt || fullTime(parsed.ts),
             _topic: topic
           };
           const existing = history.find((item) => historyKey(item) === historyKey(entry));
