@@ -426,11 +426,6 @@ safe-buffer/index.js:
     gap: 5px;
     white-space: nowrap;
   }
-  .screen-batt {
-    color: #171715;
-    letter-spacing: -1px;
-  }
-  .screen-batt-text { color: #171715; }
   .screen-line {
     position: absolute;
     z-index: 1;
@@ -678,7 +673,7 @@ safe-buffer/index.js:
       <button class="quick mood" type="button" data-face="(=^v^=)" aria-label="得意">(=^v^=)</button>
     </div>
 
-    <div class="delivery" id="delivery" aria-live="polite">她还没有看到新消息</div>
+    <div class="delivery" id="delivery" aria-live="polite">还没有发送新消息</div>
 
     <div class="setup">
       <button class="setup-btn ghost" id="wifiReset" type="button">重新配网</button>
@@ -751,7 +746,7 @@ safe-buffer/index.js:
   </section>
 
   <footer class="footer">
-    <span>发送主题：yaner0911/mommy/msg</span>
+    <span>留言会保留在云端，直到下一条覆盖</span>
     <span>长消息超出部分会被截断</span>
   </footer>
 </main>
@@ -759,10 +754,9 @@ safe-buffer/index.js:
 <p class="sr-only" id="announcement" aria-live="polite"></p>
 <script>
 (() => {
-  const TOPIC = "yaner0911/mommy/msg";
-  const REPLY_TOPIC = "yaner0911/mommy/reply";
-  const HISTORY_BASE = "yaner0911/mommy/history";
-  const CMD_TOPIC = "yaner0911/mommy/cmd";
+  const TOPIC = "yaner0911/pager-7c4e91/msg";
+  const HISTORY_BASE = "yaner0911/pager-7c4e91/history";
+  const CMD_TOPIC = "yaner0911/pager-7c4e91/cmd";
   const SCHEDULE_START = 6 * 60 + 50;
   const SCHEDULE_END = 22 * 60 + 10;
   const SCHEDULE_STEP = 40;
@@ -1160,7 +1154,7 @@ safe-buffer/index.js:
     showOnScreen(cleanText, "已发送", fullTime(sentAt), true, selectedFace);
     message.value = "";
     updateMeasurements("");
-    delivery.textContent = "已发送，等她看到…";
+    delivery.textContent = "已发送，挂件会在下一个播放点显示";
     announcement.textContent = "消息已发送：" + cleanText;
   }
 
@@ -1253,7 +1247,7 @@ safe-buffer/index.js:
 
   client.on("connect", () => {
     setConnection("已连接", true);
-    client.subscribe([TOPIC, REPLY_TOPIC, HISTORY_BASE + "/#"]);
+    client.subscribe([TOPIC, HISTORY_BASE + "/#"]);
     if (loadQueue().length || loadPin()) publishCurrent();
   });
 
@@ -1307,8 +1301,6 @@ safe-buffer/index.js:
       } catch (error) {
         // 忽略损坏的历史条目
       }
-    } else if (topic === REPLY_TOPIC) {
-      delivery.textContent = "她看到了 ❤️ " + text;
     }
   });
 
