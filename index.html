@@ -451,46 +451,6 @@ safe-buffer/index.js:
   }
   .screen-face { color: #171715; }
   .history-card { margin-top: 15px; padding: 20px 18px 16px; }
-  .schedule-card { margin-top: 15px; padding: 20px 18px; }
-  .schedule-head {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 12px;
-  }
-  .schedule-head h2 {
-    margin: 0;
-    font-family: "Noto Serif SC", "Songti SC", SimSun, serif;
-    font-size: 19px;
-    font-weight: 600;
-  }
-  .schedule-head span { color: var(--muted); font-size: 10px; }
-  .schedule-note {
-    margin: 8px 0 14px;
-    color: var(--muted);
-    font-size: 11px;
-    line-height: 1.6;
-  }
-  .schedule-grid {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 7px;
-  }
-  .schedule-time {
-    padding: 7px 4px;
-    border: 1px solid #ead4da;
-    border-radius: 9px;
-    color: var(--rose-deep);
-    background: var(--rose-soft);
-    font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
-    font-size: 11px;
-    text-align: center;
-  }
-  .schedule-time.is-next {
-    color: #fff;
-    border-color: var(--ink);
-    background: var(--ink);
-  }
   .history-head {
     display: flex;
     align-items: center;
@@ -631,7 +591,7 @@ safe-buffer/index.js:
   <header class="hero">
     <p class="eyebrow">A LITTLE NOTE FOR YOU</p>
     <h1>To：陈思坛</h1>
-    <p class="lede">写下想说的话，发送后会出现在她的墨水屏挂件上。下方同步预览收到的样子。</p>
+    <p class="lede">写下想说的话，发送后会出现在她的墨水屏挂件上（全天候接收，最多 5 分钟显示）。下方同步预览收到的样子。</p>
   </header>
 
   <section class="card composer" aria-labelledby="composeTitle">
@@ -692,7 +652,7 @@ safe-buffer/index.js:
         <div class="screen-page" id="screenPage">
           <div class="screen-top">
             <span class="screen-left">
-              <span id="screenClock">--:--</span>
+              <span id="screenClock">@aman_mm</span>
               <span class="screen-heart" aria-hidden="true">
               <svg viewBox="0 0 11 9" shape-rendering="crispEdges">
                 <rect x="2" y="0" width="2" height="1"/>
@@ -728,15 +688,6 @@ safe-buffer/index.js:
     </div>
   </section>
 
-  <section class="card schedule-card" aria-labelledby="scheduleTitle">
-    <div class="schedule-head">
-      <h2 id="scheduleTitle">播放时间表</h2>
-      <span>每天</span>
-    </div>
-    <p class="schedule-note">06:50 开始，每 40 分钟醒来播放一轮，最后一轮是 22:10；播放完即进入深度睡眠，新消息在第二天 06:50 后显示。</p>
-    <div class="schedule-grid" id="scheduleGrid"></div>
-  </section>
-
   <section class="card history-card" aria-labelledby="historyTitle">
     <div class="history-head">
       <h2 id="historyTitle">历史消息</h2>
@@ -757,9 +708,6 @@ safe-buffer/index.js:
   const TOPIC = "yaner0911/stardust/msg";
   const HISTORY_BASE = "yaner0911/stardust/history";
   const CMD_TOPIC = "yaner0911/stardust/cmd";
-  const SCHEDULE_START = 6 * 60 + 50;
-  const SCHEDULE_END = 22 * 60 + 10;
-  const SCHEDULE_STEP = 40;
   const MAX_LEN = 40;
   const MAX_QUEUE = 5;
   const QUEUE_KEY = "pager-queue-v1";
@@ -796,7 +744,6 @@ safe-buffer/index.js:
   const moodButtons = Array.from(document.querySelectorAll("[data-face]"));
   const historyList = document.getElementById("historyList");
   const historyClear = document.getElementById("historyClear");
-  const scheduleGrid = document.getElementById("scheduleGrid");
   const announcement = document.getElementById("announcement");
   let refreshTimer;
   let selectedFace = loadFace();
@@ -846,23 +793,6 @@ safe-buffer/index.js:
     return new Date().toTimeString().slice(0, 5);
   }
 
-  function nextWakeHM() {
-    const now = new Date();
-    const nowMinute = now.getHours() * 60 + now.getMinutes();
-    const pad = (n) => String(n).padStart(2, "0");
-    let nextMinute;
-
-    if (nowMinute < SCHEDULE_START) {
-      nextMinute = SCHEDULE_START;
-    } else {
-      nextMinute = SCHEDULE_START
-        + (Math.floor((nowMinute - SCHEDULE_START) / SCHEDULE_STEP) * SCHEDULE_STEP + SCHEDULE_STEP);
-      if (nextMinute > SCHEDULE_END) nextMinute = SCHEDULE_START;
-    }
-
-    return "next " + pad(Math.floor(nextMinute / 60)) + ":" + pad(nextMinute % 60);
-  }
-
   function hmFromTs(ms) {
     if (!ms) return nowHM();
     const d = new Date(ms);
@@ -908,7 +838,7 @@ safe-buffer/index.js:
       ? '<span class="screen-time-inline">' + escapeHtml(sentTime) + '</span>'
       : "");
     previewState.textContent = state;
-    screenClock.textContent = nextWakeHM();
+    screenClock.textContent = "@aman_mm";
     screenDate.textContent = dateText();
     screenStatus.textContent = "MOM / SYNC OK";
     applyFace(face);
@@ -935,30 +865,6 @@ safe-buffer/index.js:
     }
     client.publish(CMD_TOPIC, JSON.stringify(command), { retain: true, qos: 1 });
     return true;
-  }
-
-  function renderSchedule() {
-    const now = new Date();
-    const nowMinute = now.getHours() * 60 + now.getMinutes();
-    let nextMinute = null;
-    scheduleGrid.innerHTML = "";
-
-    for (let minute = SCHEDULE_START; minute <= SCHEDULE_END; minute += SCHEDULE_STEP) {
-      if (minute >= nowMinute && nextMinute === null && nowMinute <= SCHEDULE_END) {
-        nextMinute = minute;
-      }
-      const item = document.createElement("div");
-      item.className = "schedule-time";
-      item.textContent =
-        String(Math.floor(minute / 60)).padStart(2, "0") + ":" +
-        String(minute % 60).padStart(2, "0");
-      item.dataset.minute = minute;
-      scheduleGrid.appendChild(item);
-    }
-
-    if (nextMinute === null) nextMinute = SCHEDULE_START;
-    const nextItem = scheduleGrid.querySelector(`[data-minute="${nextMinute}"]`);
-    if (nextItem) nextItem.classList.add("is-next");
   }
 
   function loadQueue() {
@@ -1154,7 +1060,7 @@ safe-buffer/index.js:
     showOnScreen(cleanText, "已发送", fullTime(sentAt), true, selectedFace);
     message.value = "";
     updateMeasurements("");
-    delivery.textContent = "已发送，挂件会在下一个播放点显示";
+    delivery.textContent = "已发送，挂件最多 5 分钟后显示";
     announcement.textContent = "消息已发送：" + cleanText;
   }
 
@@ -1204,8 +1110,6 @@ safe-buffer/index.js:
     showOnScreen("心情怎么样", "示例消息", "", false, DEFAULT_FACE);
   }
   renderHistory();
-  renderSchedule();
-  setInterval(renderSchedule, 60000);
 
   historyClear.addEventListener("click", () => {
     const history = loadHistory();
